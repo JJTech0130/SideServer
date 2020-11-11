@@ -7,7 +7,9 @@
 //
 
 #import "ALTWiredConnection+Private.h"
-#import "AltKit.h"
+
+#import "ALTConnection.h"
+#import "NSError+ALTServerError.h"
 
 @implementation ALTWiredConnection
 
@@ -30,8 +32,15 @@
 
 - (void)disconnect
 {
+    if (![self isConnected])
+    {
+        return;
+    }
+    
     idevice_disconnect(self.connection);
     _connection = nil;
+    
+    self.connected = NO;
 }
 
 - (void)sendData:(NSData *)data completionHandler:(void (^)(BOOL, NSError * _Nullable))completionHandler
@@ -85,7 +94,7 @@
             uint32_t size = MIN(4096, (uint32_t)expectedSize - (uint32_t)receivedData.length);
             
             uint32_t receivedBytes = 0;
-            if (idevice_connection_receive_timeout(self.connection, bytes, size, &receivedBytes, 0) != IDEVICE_E_SUCCESS)
+            if (idevice_connection_receive_timeout(self.connection, bytes, size, &receivedBytes, 10000) != IDEVICE_E_SUCCESS)
             {
                 return finish(nil, [NSError errorWithDomain:AltServerErrorDomain code:ALTServerErrorLostConnection userInfo:nil]);
             }
@@ -96,6 +105,13 @@
         
         finish(receivedData, nil);
     });
+}
+
+#pragma mark - NSObject -
+
+- (NSString *)description
+{
+    return [NSString stringWithFormat:@"%@ (Wired)", self.device.name];
 }
 
 @end
